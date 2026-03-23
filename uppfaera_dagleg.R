@@ -9,7 +9,6 @@ cat(format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
 
 # --- Slóðir ---
 SKRA_MAPPA  <- getwd()
-SHAREPOINT  <- "/Users/agustarnorsson/Library/CloudStorage/OneDrive-AlþýðusambandÍslands/Eldsneytisvakt - Skjöl/Sjálfvirkar uppfærslur"
 CACHE_GAS   <- file.path(SKRA_MAPPA, "cache_gas.rds")
 CACHE_MM    <- file.path(SKRA_MAPPA, "cache_min_max.rds")
 CACHE_WTI   <- file.path(SKRA_MAPPA, "cache_wti.rds")
@@ -197,22 +196,5 @@ min_max |>
   ) |>
   write_xlsx(EXCEL_MM)
 cat("   vikur_fra_2017.xlsx og min_max_dagverd.xlsx vistuð.\n\n")
-
-# --- 8. Afrita í SharePoint (bara ef mappan er til, t.d. á heimatölvu) ---
-cat("7. SharePoint...\n")
-if (dir.exists(SHAREPOINT)) {
-  nidurstada <- file.copy(
-    from      = c(EXCEL_VIKUR, EXCEL_MM),
-    to        = SHAREPOINT,
-    overwrite = TRUE
-  )
-  if (all(nidurstada)) {
-    cat("   Báðar skrár afritaðar í SharePoint.\n")
-  } else {
-    cat("   VILLA við afritun í SharePoint.\n")
-  }
-} else {
-  cat("   SharePoint mappan er ekki til - sleppir (keyrsla í skýi).\n")
-}
 
 cat("\n=== Lokið:", format(Sys.time(), "%H:%M:%S"), "===\n")
