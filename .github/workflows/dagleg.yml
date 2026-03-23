@@ -1,0 +1,85 @@
+name: Dagleg uppfærsla bensínverðs
+
+on:
+  schedule:
+    - cron: '30 8 * * *'   # 8:30 UTC = 8:30 á Íslandi (engin sumartímabreyting)
+  workflow_dispatch:         # leyfa handvirka keyrslu á GitHub
+
+jobs:
+  uppfaera:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Endurheimt gögn frá síðustu keyrslu (gas_prices_history.json o.fl.)
+      - name: Endurheimt gagnacache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            gas_prices_history.json
+            cache_gas.rds
+            cache_min_max.rds
+            cache_wti.rds
+            cache_usd.rds
+          key: gogn-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: gogn-${{ runner.os }}-
+
+      # Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setja upp Python pakka
+        run: pip install gitpython tqdm
+
+      - name: Keyra extract_history.py
+        run: python extract_history.py
+
+      # R
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Cache R pakkar
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-pakkar-${{ runner.os }}-${{ hashFiles('.github/workflows/dagleg.yml') }}
+          restore-keys: r-pakkar-${{ runner.os }}-
+
+      - name: Setja upp R pakka
+        run: |
+          Rscript -e "install.packages(
+            c('jsonlite','tidyverse','lubridate','janitor','rio',
+              'xml2','writexl','skimr','stringdist'),
+            repos = 'https://cran.r-project.org', quiet = TRUE
+          )"
+
+      - name: Keyra uppfaera_dagleg.R
+        run: Rscript uppfaera_dagleg.R
+
+      # Vista uppfærðan gagnacache
+      - name: Vista gagnacache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            gas_prices_history.json
+            cache_gas.rds
+            cache_min_max.rds
+            cache_wti.rds
+            cache_usd.rds
+          key: gogn-${{ runner.os }}-${{ github.run_id }}
+
+      # Commita Excel skrár og last_commit.txt í repoið
+      - name: Commita niðurstöður
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add vikur_fra_2017.xlsx min_max_dagverd.xlsx last_commit.txt
+          git diff --staged --quiet || git commit -m "Uppfært $(date +'%Y-%m-%d')"
+          git push

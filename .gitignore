@@ -1,0 +1,14 @@
+# Of stórar skrár fyrir git - geymdar í Actions cache
+gas_prices_history.json
+cache_gas.rds
+cache_min_max.rds
+cache_wti.rds
+cache_usd.rds
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# macOS
+.DS_Store
