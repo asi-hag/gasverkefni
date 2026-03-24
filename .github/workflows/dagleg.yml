@@ -59,11 +59,10 @@ jobs:
 
       - name: Setja upp R pakka
         run: |
-          Rscript -e "install.packages(
-            c('jsonlite','tidyverse','lubridate','janitor','rio',
-              'xml2','writexl','skimr','stringdist'),
-            repos = 'https://cran.r-project.org', quiet = TRUE
-          )"
+          Rscript -e "
+            options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/jammy/latest'))
+            install.packages(c('jsonlite','tidyverse','lubridate','janitor','rio','xml2','writexl','skimr','stringdist'))
+          "
 
       - name: Keyra uppfaera_dagleg.R
         run: Rscript uppfaera_dagleg.R
