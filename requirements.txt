@@ -1,0 +1,5 @@
+gitpython==3.1.44
+tqdm
+requests==2.32.3
+simplejson==3.19.3
+lxml==5.3.0
