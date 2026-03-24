@@ -5,6 +5,9 @@ on:
     - cron: '30 8 * * *'   # 8:30 UTC = 8:30 á Íslandi (engin sumartímabreyting)
   workflow_dispatch:         # leyfa handvirka keyrslu á GitHub
 
+permissions:
+  contents: write
+
 jobs:
   uppfaera:
     runs-on: ubuntu-latest
@@ -32,9 +35,10 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: gasvaktin/pip_requirements.txt
 
       - name: Setja upp Python pakka
-        run: pip install gitpython tqdm
+        run: python -m pip install -r gasvaktin/pip_requirements.txt tqdm
 
       - name: Keyra extract_history.py
         run: python extract_history.py
