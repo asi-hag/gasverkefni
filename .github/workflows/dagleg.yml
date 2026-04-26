@@ -46,23 +46,22 @@ jobs:
 
       # R
       - name: Set up R
+        id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
+          use-public-rspm: true
 
       - name: Cache R pakkar
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: r-pakkar-${{ runner.os }}-${{ hashFiles('.github/workflows/dagleg.yml') }}
-          restore-keys: r-pakkar-${{ runner.os }}-
+          key: r-pakkar-${{ runner.os }}-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('.github/workflows/dagleg.yml') }}
+          restore-keys: r-pakkar-${{ runner.os }}-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Setja upp R pakka
         run: |
-          Rscript -e "
-            options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/jammy/latest'))
-            install.packages(c('jsonlite','tidyverse','lubridate','janitor','rio','xml2','writexl','skimr','stringdist'))
-          "
+          Rscript -e "install.packages(c('jsonlite','tidyverse','lubridate','janitor','rio','xml2','writexl','skimr','stringdist'))"
 
       - name: Keyra uppfaera_dagleg.R
         run: Rscript uppfaera_dagleg.R
