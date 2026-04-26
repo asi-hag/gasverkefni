@@ -235,7 +235,7 @@ min_max |> pivot_longer(c(min, max)) |>
   ) + geom_step()+ 
   facet_wrap(~company)+
   theme_minimal()+
- scale_x_date(date_labels = "%d", date_breaks = "1 day")+ 
+ scale_x_date(date_labels = "%d/%m", date_breaks = "1 week")+ 
   theme(legend.position = "bottom")+
   labs(x="", y="", colour ="",
 title = "Verð - min/max", subtitle = "Frá mars 2026")

@@ -132,7 +132,9 @@ if (file.exists(CACHE_GAS)) {
   fra_date <- max(gas_cache$date) - days(3)
   cat("   Cache til:", format(max(gas_cache$date)), "- reikna frá:", format(fra_date), "\n")
   nytt <- reikna_gas_dagleg(df, wti_data, usd_gengi, fra_date)
-  gas <- bind_rows(filter(gas_cache, date < fra_date), nytt) %>% arrange(date)
+  gas <- bind_rows(filter(gas_cache, date < fra_date), nytt) %>%
+    arrange(date) %>%
+    fill(wti_price_usd, usd_exchange_rate, wti_usd_per_liter, wti_isk_per_liter, .direction = "down")
 } else {
   cat("   Engin cache - reikna allt frá 2016.\n")
   gas <- reikna_gas_dagleg(df, wti_data, usd_gengi, ymd("2016-12-01"))
