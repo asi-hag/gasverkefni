@@ -37,6 +37,7 @@ def collect_price_data(repo, commits):
             try:
                 prices = json.loads(content)
                 data.append({
+                    "commit": commit.hexsha,
                     "timestamp": commit.committed_datetime.isoformat(),
                     "prices": prices
                 })
@@ -44,39 +45,55 @@ def collect_price_data(repo, commits):
                 continue
     return data
 
-def get_new_commits(repo, file_path, last_sha=None):
+def load_existing_data():
+    if not os.path.exists("gas_prices_history.json"):
+        return []
+    with open("gas_prices_history.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def get_missing_commits(repo, file_path, existing_data):
+    existing_commits = {
+        item.get("commit")
+        for item in existing_data
+        if item.get("commit")
+    }
+    existing_timestamps = {
+        item.get("timestamp")
+        for item in existing_data
+        if item.get("timestamp")
+    }
+
     all_commits = list(repo.iter_commits(paths=file_path))
-    if last_sha:
-        for i, commit in enumerate(all_commits):
-            if commit.hexsha.startswith(last_sha):
-                return all_commits[:i]  # bara ný commit
-    return all_commits
+    missing_commits = [
+        commit
+        for commit in all_commits
+        if commit.hexsha not in existing_commits
+        and commit.committed_datetime.isoformat() not in existing_timestamps
+    ]
+    return missing_commits, all_commits
+
+def write_last_commit(commits):
+    if not commits:
+        return
+    with open("last_commit.txt", "w") as f:
+        f.write(commits[0].hexsha)
 
 def main():
     print("Cloning repository...")
     repo, tmp_dir = clone_repo()
 
-    # Sækja síðasta SHA ef hann er til
-    last_sha = None
-    if os.path.exists("last_commit.txt"):
-        with open("last_commit.txt", "r") as f:
-            last_sha = f.read().strip()
+    full_data = load_existing_data()
 
-    print("Getting new commits...")
-    commits = get_new_commits(repo, FILE_PATH, last_sha)
+    print("Getting missing commits...")
+    commits, all_commits = get_missing_commits(repo, FILE_PATH, full_data)
 
     if not commits:
-        print("Engin ný commit — ekkert að uppfæra.")
+        write_last_commit(all_commits)
+        print("Engin ný eða vöntuð commit — ekkert að uppfæra.")
         return
 
-    print(f"Collecting gas price data from {len(commits)} new commits...")
+    print(f"Collecting gas price data from {len(commits)} missing commits...")
     new_data = collect_price_data(repo, commits)
-
-    # Hlaða eldri gögnum ef þau eru til
-    full_data = []
-    if os.path.exists("gas_prices_history.json"):
-        with open("gas_prices_history.json", "r", encoding="utf-8") as f:
-            full_data = json.load(f)
 
     # Sameina og vista
     full_data.extend(new_data)
@@ -84,10 +101,9 @@ def main():
         json.dump(full_data, f, indent=2, ensure_ascii=False)
 
     # Vista nýjasta SHA
-    with open("last_commit.txt", "w") as f:
-        f.write(commits[0].hexsha)
+    write_last_commit(all_commits)
 
-    print(f"Skráð {len(new_data)} nýjar athuganir í gas_prices_history.json")
+    print(f"Skráð {len(new_data)} nýjar/vantaðar athuganir í gas_prices_history.json")
 
 if __name__ == "__main__":
     main()
