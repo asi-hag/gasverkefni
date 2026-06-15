@@ -67,13 +67,16 @@ if (cache_gildur(CACHE_WTI)) {
   cat("   WTI: nota cache.\n")
   wti_data <- readRDS(CACHE_WTI)
 } else {
-  cat("   WTI: sæki nýtt...\n")
-  temp_file <- tempfile(fileext = ".xls")
-  download.file("https://ir.eia.gov/wpsr/psw11.xls", temp_file, mode = "wb", quiet = TRUE)
-  wti_data <- import(temp_file, which = "Data 2", skip = 2) %>%
-    select(1:2) %>%
+  cat("   Bensinverð (FRED/GASREGCOVW): sæki nýtt...\n")
+  wti_data <- read.csv(
+    "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GASREGCOVW",
+    stringsAsFactors = FALSE
+  ) %>%
     setNames(c("date", "price")) %>%
-    mutate(date = as_date(date)) %>%
+    mutate(
+      date  = as_date(date),
+      price = suppressWarnings(as.numeric(price))
+    ) %>%
     filter(!is.na(price))
   saveRDS(wti_data, CACHE_WTI)
 }
