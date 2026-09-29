@@ -44,9 +44,6 @@ jobs:
       - name: Setja upp Python pakka
         run: python -m pip install -r requirements.txt
 
-      - name: Keyra extract_history.py
-        run: python extract_history.py
-
       # R
       - name: Set up R
         id: setup-r
@@ -64,8 +61,9 @@ jobs:
 
       - name: Setja upp R pakka
         run: |
-          Rscript -e "install.packages(c('jsonlite','tidyverse','lubridate','janitor','rio','xml2','writexl','skimr','stringdist'))"
+          Rscript -e "install.packages(c('jsonlite','tidyverse','lubridate','rio','xml2','writexl'))"
 
+      # R-skriftan keyrir extract_history.py og býr til bæði Excel skjölin.
       - name: Keyra uppfaera_dagleg.R
         run: Rscript uppfaera_dagleg.R
 
