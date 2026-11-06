@@ -28,7 +28,10 @@ jobs:
             last_commit.txt
             cache_gas.rds
             cache_min_max.rds
-            cache_wti.rds
+            cache_DGASNYH.rds
+            cache_GASREGCOVW.rds
+            cache_DDFUELNYH.rds
+            cache_disel.rds
             cache_usd.rds
           key: gogn-${{ runner.os }}-${{ github.run_id }}
           restore-keys: gogn-${{ runner.os }}-
@@ -67,6 +70,9 @@ jobs:
       - name: Keyra uppfaera_dagleg.R
         run: Rscript uppfaera_dagleg.R
 
+      - name: Keyra uppfaera_disel.R
+        run: Rscript -e 'options(disel.uppfaera_json = FALSE); source("uppfaera_disel.R")'
+
       # Vista uppfærðan gagnacache
       - name: Vista gagnacache
         uses: actions/cache/save@v4
@@ -76,7 +82,10 @@ jobs:
             last_commit.txt
             cache_gas.rds
             cache_min_max.rds
-            cache_wti.rds
+            cache_DGASNYH.rds
+            cache_GASREGCOVW.rds
+            cache_DDFUELNYH.rds
+            cache_disel.rds
             cache_usd.rds
           key: gogn-${{ runner.os }}-${{ github.run_id }}
 
@@ -85,6 +94,15 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add vikur_fra_2017.xlsx min_max_dagverd.xlsx last_commit.txt
+          git add vikur_fra_2017.xlsx min_max_dagverd.xlsx last_commit.txt bensin_vikur_fra_2025.xlsx disel_vikur_fra_2025.xlsx
           git diff --staged --quiet || git commit -m "Uppfært $(date +'%Y-%m-%d')"
-          git push
+          # GitHub getur tímabundið hafnað vistun (t.d. commit_refs villa).
+          for tilraun in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            if [ "$tilraun" -lt 3 ]; then
+              sleep 20
+            fi
+          done
+          exit 1

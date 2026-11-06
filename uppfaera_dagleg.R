@@ -2,7 +2,9 @@
 # Keyrir sjálfkrafa á hverjum degi kl. 8:30
 # - Uppfærir JSON gögn með Python
 # - Reiknar aðeins nýjar dagsetningar (incremental)
-# - Vistar Excel skjöl og afritar í SharePoint
+# - Vistar Excel skjöl, þar á meðal bensin_vikur_fra_2025.xlsx
+# - Markaðsviðmið: GASREGCOVW (smásöluverð í BNA, wti_* dálkar)
+#   og DGASNYH (staðverð í New York Harbor, dgasnyh_* dálkar)
 
 cat("=== Dagleg uppfærsla bensínverðs ===\n")
 cat(format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
@@ -11,7 +13,6 @@ cat(format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n")
 SKRA_MAPPA  <- getwd()
 CACHE_GAS   <- file.path(SKRA_MAPPA, "cache_gas.rds")
 CACHE_MM    <- file.path(SKRA_MAPPA, "cache_min_max.rds")
-CACHE_WTI   <- file.path(SKRA_MAPPA, "cache_wti.rds")
 CACHE_USD   <- file.path(SKRA_MAPPA, "cache_usd.rds")
 EXCEL_VIKUR <- file.path(SKRA_MAPPA, "vikur_fra_2017.xlsx")
 EXCEL_MM    <- file.path(SKRA_MAPPA, "min_max_dagverd.xlsx")
@@ -19,13 +20,14 @@ EXCEL_MM    <- file.path(SKRA_MAPPA, "min_max_dagverd.xlsx")
 FYRIRTAEKI <- c("Atlantsolía", "Costco Iceland", "N1", "ÓB", "Olís", "Orkan")
 
 # --- 1. Uppfæra JSON ---
-cat("1. Uppfæri gas_prices_history.json...\n")
-uppfaera <- system(
-  paste("python3", file.path(SKRA_MAPPA, "extract_history.py")),
-  wait = TRUE
-)
-if (uppfaera != 0) stop("Python scriptan mistókst. Athugaðu extract_history.py.")
-cat("   JSON uppfært.\n\n")
+if (getOption("eldsneyti.uppfaera_json", TRUE)) {
+  cat("1. Uppfæri gas_prices_history.json...\n")
+  uppfaera <- system2("python3", shQuote(file.path(SKRA_MAPPA, "extract_history.py")))
+  if (uppfaera != 0) stop("Python-skriftan mistókst. Athugaðu extract_history.py.")
+  cat("   JSON uppfært.\n\n")
+} else {
+  cat("1. Nota fyrirliggjandi gas_prices_history.json.\n\n")
+}
 
 # --- 2. Pakkar ---
 suppressPackageStartupMessages({
@@ -56,30 +58,19 @@ df <- gas_data_raw %>%
 
 cat("   ", nrow(df), "línur,", n_distinct(df$date), "einstaka dagar.\n\n")
 
-# --- 4. WTI og USD (cache í 20 klukkustundir) ---
+# --- 4. Markaðsverð bensíns og USD (cache í 20 klukkustundir) ---
 cache_gildur <- function(skra) {
   file.exists(skra) && difftime(Sys.time(), file.mtime(skra), units = "hours") < 20
 }
 
-cat("3. WTI og USD gögn...\n")
+cat("3. Markaðsverð bensíns (GASREGCOVW og DGASNYH) og USD gögn...\n")
 
-if (cache_gildur(CACHE_WTI)) {
-  cat("   WTI: nota cache.\n")
-  wti_data <- readRDS(CACHE_WTI)
-} else {
-  cat("   Bensinverð (FRED/GASREGCOVW): sæki nýtt...\n")
-  wti_data <- read.csv(
-    "https://fred.stlouisfed.org/graph/fredgraph.csv?id=GASREGCOVW",
-    stringsAsFactors = FALSE
-  ) %>%
-    setNames(c("date", "price")) %>%
-    mutate(
-      date  = as_date(date),
-      price = suppressWarnings(as.numeric(price))
-    ) %>%
-    filter(!is.na(price))
-  saveRDS(wti_data, CACHE_WTI)
-}
+source(file.path(SKRA_MAPPA, "markadsverd.R"))
+# Aðalviðmið, óbreytt frá upphafi: vikulegt smásöluverð bensíns í BNA.
+smasala_bna <- saekja_stadverd("GASREGCOVW", SKRA_MAPPA)
+# Aukaviðmið: daglegt staðverð bensíns í New York Harbor.
+dgasnyh <- saekja_stadverd("DGASNYH", SKRA_MAPPA)
+wti_data <- transmute(smasala_bna, date, price = world_usd_gallon)
 
 if (cache_gildur(CACHE_USD)) {
   cat("   USD: nota cache.\n")
@@ -142,7 +133,24 @@ if (file.exists(CACHE_GAS)) {
   cat("   Engin cache - reikna allt frá 2016.\n")
   gas <- reikna_gas_dagleg(df, wti_data, usd_gengi, ymd("2016-12-01"))
 }
+# Endurreikna ALLT markaðsverð í hverri keyrslu svo cache geti aldrei
+# blandað saman ólíkum viðmiðum. wti_* = GASREGCOVW (heitið sögulegt),
+# dgasnyh_* = DGASNYH.
+innlent <- select(gas, date, avg_min_bensin95)
+gas_dgasnyh <- sameina_markadsverd(innlent, dgasnyh, usd_gengi)
+gas <- sameina_markadsverd(innlent, smasala_bna, usd_gengi) |>
+  transmute(date, avg_min_bensin95,
+            wti_price_usd = world_usd_gallon, usd_exchange_rate,
+            wti_usd_per_liter = world_usd_per_liter,
+            wti_isk_per_liter = world_isk_per_liter) |>
+  left_join(transmute(gas_dgasnyh, date,
+                      dgasnyh_usd_gallon = world_usd_gallon,
+                      dgasnyh_usd_per_liter = world_usd_per_liter,
+                      dgasnyh_isk_per_liter = world_isk_per_liter),
+            by = "date")
 saveRDS(gas, CACHE_GAS)
+vista_vikur_2025(gas_dgasnyh, "avg_min_bensin95", "DGASNYH",
+                 file.path(SKRA_MAPPA, "bensin_vikur_fra_2025.xlsx"))
 cat("   gas:", nrow(gas), "dagar.\n\n")
 
 weekly_comparison <- gas %>%
@@ -154,6 +162,8 @@ weekly_comparison <- gas %>%
     avg_wti_usd  = mean(wti_usd_per_liter, na.rm = TRUE),
     avg_wti_isk  = mean(wti_isk_per_liter, na.rm = TRUE),
     avg_usd_rate = mean(usd_exchange_rate, na.rm = TRUE),
+    avg_dgasnyh_usd = mean(dgasnyh_usd_per_liter, na.rm = TRUE),
+    avg_dgasnyh_isk = mean(dgasnyh_isk_per_liter, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -203,3 +213,6 @@ min_max |>
 cat("   vikur_fra_2017.xlsx og min_max_dagverd.xlsx vistuð.\n\n")
 
 cat("\n=== Lokið:", format(Sys.time(), "%H:%M:%S"), "===\n")
+
+
+weekly_comparison |> tail()

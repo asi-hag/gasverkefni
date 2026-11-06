@@ -12,3 +12,8 @@ cache_usd.rds
 
 # macOS
 .DS_Store
+
+# Staðbundin cron-lokka
+log_dagleg.txt
+~$*.xlsx
+cache_*.rds
