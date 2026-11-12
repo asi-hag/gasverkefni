@@ -59,8 +59,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: r-pakkar-${{ runner.os }}-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('.github/workflows/dagleg.yml') }}
-          restore-keys: r-pakkar-${{ runner.os }}-${{ steps.setup-r.outputs.installed-r-version }}-
+          key: r-pakkar-ubuntu-24.04-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('.github/workflows/dagleg.yml') }}
+          restore-keys: r-pakkar-ubuntu-24.04-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Setja upp R pakka
         run: |
